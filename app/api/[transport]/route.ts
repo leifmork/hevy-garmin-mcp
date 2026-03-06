@@ -318,6 +318,49 @@ const TOOLS: Record<string, { description: string; handler: (args: any) => Promi
         },
     },
 
+    get_heart_rate_zones: {
+        description: "Returns the user's heart rate zone boundaries (Zone 1-5 floor/ceiling in bpm) per sport (DEFAULT, RUNNING, CYCLING, etc.), max heart rate, lactate threshold HR, VO2 max, and training method from Garmin. Call this first when analyzing heart rate data from activities to properly classify effort levels",
+        handler: async () => {
+            const client = await getGarminClient();
+            try {
+                const [zones, settings] = await Promise.all([
+                    client.get(GARMIN_ENDPOINTS.heartRateZones),
+                    client.get(GARMIN_ENDPOINTS.userSettings),
+                ]);
+
+                const ud = (settings as any)?.userData || {};
+                const zoneList = Array.isArray(zones) ? zones : [zones];
+
+                const sportZones = zoneList.map((z: any) => ({
+                    sport: z.sport || "DEFAULT",
+                    trainingMethod: z.trainingMethod,
+                    maxHeartRate: z.maxHeartRateUsed,
+                    restingHeartRate: z.restingHeartRateUsed,
+                    lactateThresholdHeartRate: z.lactateThresholdHeartRateUsed,
+                    zones: {
+                        zone1: { name: "Warm Up", floorBpm: z.zone1Floor, ceilingBpm: z.zone2Floor ? z.zone2Floor - 1 : null },
+                        zone2: { name: "Easy", floorBpm: z.zone2Floor, ceilingBpm: z.zone3Floor ? z.zone3Floor - 1 : null },
+                        zone3: { name: "Aerobic", floorBpm: z.zone3Floor, ceilingBpm: z.zone4Floor ? z.zone4Floor - 1 : null },
+                        zone4: { name: "Threshold", floorBpm: z.zone4Floor, ceilingBpm: z.zone5Floor ? z.zone5Floor - 1 : null },
+                        zone5: { name: "Maximum", floorBpm: z.zone5Floor, ceilingBpm: z.maxHeartRateUsed },
+                    },
+                }));
+
+                return {
+                    sportZones,
+                    fitnessProfile: {
+                        vo2MaxRunning: ud.vo2MaxRunning,
+                        vo2MaxCycling: ud.vo2MaxCycling,
+                        gender: ud.gender,
+                        age: ud.birthDate ? Math.floor((Date.now() - new Date(ud.birthDate).getTime()) / (365.25 * 86400000)) : null,
+                    }
+                };
+            } catch {
+                return { error: "Failed to fetch heart rate zones from Garmin." };
+            }
+        },
+    },
+
     // ─── Hevy Tools ───────────────────────────────────────────
 
     get_lifting_sessions: {
@@ -629,6 +672,16 @@ async function handleRequest(body: any) {
                         startDate: { type: "string", description: "Start date (YYYY-MM-DD). Defaults to 30 days ago." },
                         endDate: { type: "string", description: "End date (YYYY-MM-DD). Defaults to today." }
                     },
+                    additionalProperties: true
+                }
+            },
+            {
+                name: "get_heart_rate_zones",
+                description: "Returns the user's heart rate zone boundaries (Zone 1-5 floor/ceiling in bpm) per sport (DEFAULT, RUNNING, CYCLING, etc.), max heart rate, lactate threshold HR, VO2 max, and training method from Garmin. Call this first when analyzing heart rate data from activities to properly classify effort levels",
+                annotations: readOnlyAnnotations,
+                inputSchema: {
+                    type: "object",
+                    properties: {},
                     additionalProperties: true
                 }
             },

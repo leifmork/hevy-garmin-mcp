@@ -23,4 +23,10 @@ export const GARMIN_ENDPOINTS = {
   /** Scheduled workouts for a specific date range */
   calendarItems: (startDate: string, endDate: string) =>
     `${GC_API}/calendar-service/year/${startDate}/${endDate}`,
+
+  /** Heart rate zone boundaries (Zone 1-5 floors, max HR, lactate threshold) */
+  heartRateZones: `${GC_API}/biometric-service/heartRateZones`,
+
+  /** User profile settings (VO2 max, lactate threshold HR, weight, height, etc.) */
+  userSettings: `${GC_API}/userprofile-service/userprofile/user-settings`,
 } as const;
