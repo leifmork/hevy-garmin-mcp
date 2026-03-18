@@ -4,6 +4,7 @@ import { getGarminClient } from "@/lib/garmin/client";
 import { GARMIN_ENDPOINTS } from "@/lib/garmin/endpoints";
 import { ActivityType } from "@flow-js/garmin-connect";
 import { getHevyClient } from "@/lib/hevy/client";
+import { appendEntry } from "@/lib/log/client";
 
 export const runtime = "nodejs";
 
@@ -575,7 +576,6 @@ const TOOLS: Record<string, { description: string; handler: (args: any) => Promi
     add_log_entry: {
         description: "Appends a new entry to the training log. Records qualitative context that Garmin and Hevy data cannot capture.",
         handler: async ({ date, text, tags, author = "user" }: { date: string; text: string; tags: string[]; author?: string }) => {
-            const { appendEntry } = await import("@/lib/log/client");
             const entry = await appendEntry({
                 date,
                 text,
@@ -787,6 +787,7 @@ async function handleRequest(body: any) {
                         },
                         tags: {
                             type: "array",
+                            minItems: 1,
                             items: {
                                 type: "string",
                                 enum: [
@@ -803,7 +804,7 @@ async function handleRequest(body: any) {
                         },
                     },
                     required: ["date", "text", "tags"],
-                    additionalProperties: true,
+                    additionalProperties: false,
                 },
             },
         ];
