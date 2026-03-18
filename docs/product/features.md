@@ -16,6 +16,8 @@
 - `get_lifting_volume` — total volume per exercise across recent sessions
 - Capability URL auth (`?token=`) for ChatGPT integration
 - Vercel Blob for secure Garmin session persistence
+- `add_log_entry` — append a dated, tagged qualitative entry to the training log (write)
+- `get_log_entries` — read and filter training log entries by date range and/or tag (read)
 
 ## In progress
 (none)
