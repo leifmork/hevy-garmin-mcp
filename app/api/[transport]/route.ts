@@ -5,6 +5,7 @@ import { GARMIN_ENDPOINTS } from "@/lib/garmin/endpoints";
 import { ActivityType } from "@flow-js/garmin-connect";
 import { getHevyClient } from "@/lib/hevy/client";
 import { appendEntry, readLog } from "@/lib/log/client";
+import type { LogTag } from "@/lib/log/client";
 
 export const runtime = "nodejs";
 
@@ -579,7 +580,7 @@ const TOOLS: Record<string, { description: string; handler: (args: any) => Promi
             const entry = await appendEntry({
                 date,
                 text,
-                tags: tags as import("@/lib/log/client").LogTag[],
+                tags: tags as LogTag[],
                 author: author === "ai" ? "ai" : "user",
             });
             return entry;
@@ -594,7 +595,7 @@ const TOOLS: Record<string, { description: string; handler: (args: any) => Promi
             if (endDate) entries = entries.filter(e => e.date <= endDate);
             if (tags.length > 0) {
                 entries = entries.filter(e =>
-                    (tags as string[]).some(t => e.tags.includes(t as import("@/lib/log/client").LogTag))
+                    (tags as string[]).some(t => e.tags.includes(t as LogTag))
                 );
             }
 

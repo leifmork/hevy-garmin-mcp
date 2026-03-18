@@ -39,7 +39,8 @@ const LOG_BLOB_NAME = "training-log.json";
 export async function readLog(): Promise<LogEntry[]> {
     try {
         const result = await get(LOG_BLOB_NAME, { access: "private" });
-        if (!result || !result.stream) return [];
+        if (result === null) return [];
+        if (!result.stream) throw new Error("readLog: unexpected response with no stream");
 
         const reader = result.stream.getReader();
         const chunks: Uint8Array[] = [];
@@ -49,7 +50,9 @@ export async function readLog(): Promise<LogEntry[]> {
             chunks.push(value);
         }
         const text = new TextDecoder().decode(Buffer.concat(chunks));
-        return JSON.parse(text) as LogEntry[];
+        const parsed = JSON.parse(text);
+        if (!Array.isArray(parsed)) throw new Error("readLog: blob content is not an array");
+        return parsed as LogEntry[];
     } catch (err) {
         if (err instanceof BlobNotFoundError) return [];
         throw err;
@@ -76,6 +79,8 @@ export async function writeLog(entries: LogEntry[]): Promise<void> {
 export async function appendEntry(
     entry: Omit<LogEntry, "id" | "createdAt"> & { author?: "user" | "ai" }
 ): Promise<LogEntry> {
+    // NOTE: No locking. Concurrent writes produce last-write-wins — one entry may be
+    // silently lost if two calls overlap. Acceptable for a single-user personal server.
     if (!entry.tags || entry.tags.length === 0) {
         throw new Error("At least one tag is required");
     }
