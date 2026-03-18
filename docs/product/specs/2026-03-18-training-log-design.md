@@ -18,13 +18,13 @@ Add a simple, append-only training log to the MCP server. The log gives both the
   id:        string    // uuid v4
   date:      string    // YYYY-MM-DD — the training date this entry relates to
   text:      string    // free-form note
-  tags:      Tag[]     // optional — may be empty array; see standard tags below
+  tags:      Tag[]     // required — at least one tag must be provided; see standard tags below
   author:    "user" | "ai"  // informational only — not verified by the server
   createdAt: string    // ISO 8601 timestamp — when the entry was written
 }
 ```
 
-`tags` is optional. When omitted, it defaults to `[]`. An entry with zero tags is valid.
+`tags` is required and must contain at least one value.
 
 ---
 
@@ -75,7 +75,7 @@ Appends a new entry to the log.
 ```
 date    string   required  YYYY-MM-DD — the training date this note relates to
 text    string   required  Free-form note
-tags    Tag[]    optional  One or more standard tags from the enum. Defaults to [].
+tags    Tag[]    required  One or more standard tags from the enum.
 author  enum     optional  "user" (default) | "ai" — informational only, not verified
 ```
 
@@ -116,7 +116,7 @@ limit      number   optional  Max entries to return, newest-first (default 20)
 1. **`lib/log/client.ts`** (new file)
    - `readLog(): Promise<LogEntry[]>` — fetch and parse `training-log.json` from Vercel Blob; return `[]` on 404
    - `writeLog(entries: LogEntry[]): Promise<void>` — upload updated array to Vercel Blob
-   - `appendEntry(entry: Omit<LogEntry, 'id' | 'createdAt'> & { author?: 'user' | 'ai' }): Promise<LogEntry>` — apply `author` default of `"user"` if omitted, generate id (uuid) and createdAt (ISO timestamp), append, save
+   - `appendEntry(entry: Omit<LogEntry, 'id' | 'createdAt'> & { author?: 'user' | 'ai' }): Promise<LogEntry>` — apply `author` default of `"user"` if omitted, validate `tags` is non-empty, generate id (uuid) and createdAt (ISO timestamp), append, save
 
 2. **`app/api/[transport]/route.ts`** (existing file)
    - Add `add_log_entry` and `get_log_entries` to the `TOOLS` object, following the same pattern as existing tools (e.g. `get_daily_recovery`)
