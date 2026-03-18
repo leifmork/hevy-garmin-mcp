@@ -4,7 +4,7 @@ import { getGarminClient } from "@/lib/garmin/client";
 import { GARMIN_ENDPOINTS } from "@/lib/garmin/endpoints";
 import { ActivityType } from "@flow-js/garmin-connect";
 import { getHevyClient } from "@/lib/hevy/client";
-import { appendEntry } from "@/lib/log/client";
+import { appendEntry, readLog } from "@/lib/log/client";
 
 export const runtime = "nodejs";
 
@@ -585,6 +585,27 @@ const TOOLS: Record<string, { description: string; handler: (args: any) => Promi
             return entry;
         },
     },
+    get_log_entries: {
+        description: "Reads training log entries, filtered by date and/or tags. Returns newest-first. Pass limit=999 when full history is needed.",
+        handler: async ({ startDate = "", endDate = "", tags = [], limit = 20 }: { startDate?: string; endDate?: string; tags?: string[]; limit?: number }) => {
+            let entries = await readLog();
+
+            if (startDate) entries = entries.filter(e => e.date >= startDate);
+            if (endDate) entries = entries.filter(e => e.date <= endDate);
+            if (tags.length > 0) {
+                entries = entries.filter(e =>
+                    (tags as string[]).some(t => e.tags.includes(t as import("@/lib/log/client").LogTag))
+                );
+            }
+
+            // Sort newest-first by training date, then createdAt as tiebreaker
+            entries.sort((a, b) =>
+                b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)
+            );
+
+            return entries.slice(0, limit);
+        },
+    },
 };
 
 // ─── MCP Protocol Handlers ────────────────────────────────
@@ -804,6 +825,44 @@ async function handleRequest(body: any) {
                         },
                     },
                     required: ["date", "text", "tags"],
+                    additionalProperties: false,
+                },
+            },
+            {
+                name: "get_log_entries",
+                description: "Reads training log entries. Filters by date range and/or tags. Returns newest-first. Filters on the training date field, not the entry creation timestamp. Use limit=999 to retrieve full history (e.g. all injury notes ever recorded).",
+                annotations: {
+                    readOnlyHint: true,
+                    destructiveHint: false,
+                    openWorldHint: false,
+                },
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        startDate: {
+                            type: "string",
+                            description: "Return entries where training date >= startDate (YYYY-MM-DD).",
+                        },
+                        endDate: {
+                            type: "string",
+                            description: "Return entries where training date <= endDate (YYYY-MM-DD).",
+                        },
+                        tags: {
+                            type: "array",
+                            items: {
+                                type: "string",
+                                enum: [
+                                    "observation", "milestone", "injury", "illness", "goal",
+                                    "recovery", "nutrition", "mental", "race", "plan", "lifestyle", "technique",
+                                ],
+                            },
+                            description: "Filter to entries containing at least one of these tags. Omit to return entries with any tag.",
+                        },
+                        limit: {
+                            type: "number",
+                            description: "Max entries to return, newest-first (default 20). Pass 999 to retrieve full history.",
+                        },
+                    },
                     additionalProperties: false,
                 },
             },
