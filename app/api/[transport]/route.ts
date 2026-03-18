@@ -569,6 +569,22 @@ const TOOLS: Record<string, { description: string; handler: (args: any) => Promi
             };
         },
     },
+
+    // ─── Training Log Tools ───────────────────────────────────────
+
+    add_log_entry: {
+        description: "Appends a new entry to the training log. Records qualitative context that Garmin and Hevy data cannot capture.",
+        handler: async ({ date, text, tags, author = "user" }: { date: string; text: string; tags: string[]; author?: string }) => {
+            const { appendEntry } = await import("@/lib/log/client");
+            const entry = await appendEntry({
+                date,
+                text,
+                tags: tags as import("@/lib/log/client").LogTag[],
+                author: author === "ai" ? "ai" : "user",
+            });
+            return entry;
+        },
+    },
 };
 
 // ─── MCP Protocol Handlers ────────────────────────────────
@@ -749,7 +765,47 @@ async function handleRequest(body: any) {
                     },
                     additionalProperties: true
                 }
-            }
+            },
+            {
+                name: "add_log_entry",
+                description: "Appends an entry to the athlete's training log. Use this to record qualitative context that Garmin and Hevy cannot capture — observations, milestones, injuries, goals, recovery notes, etc. The log is append-only; entries cannot be edited or deleted via this tool.",
+                annotations: {
+                    readOnlyHint: false,
+                    destructiveHint: false,
+                    openWorldHint: false,
+                },
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        date: {
+                            type: "string",
+                            description: "The training date this entry relates to (YYYY-MM-DD). Use today's date unless the entry is retrospective.",
+                        },
+                        text: {
+                            type: "string",
+                            description: "Free-form note. Be specific and concise — this is coaching context, not a diary.",
+                        },
+                        tags: {
+                            type: "array",
+                            items: {
+                                type: "string",
+                                enum: [
+                                    "observation", "milestone", "injury", "illness", "goal",
+                                    "recovery", "nutrition", "mental", "race", "plan", "lifestyle", "technique",
+                                ],
+                            },
+                            description: "Required. One or more tags classifying this entry. Choose the most specific tag that fits. Tag guide: observation=FALLBACK ONLY, use when nothing else fits; milestone=PRs and achievements; injury=localized pain (NOT illness); illness=systemic sickness like flu (NOT injury); goal=setting/updating targets; recovery=subjective readiness to train; nutrition=fueling and diet; mental=internal state like motivation (NOT external stress, use lifestyle); race=race day notes; plan=training plan changes; lifestyle=external factors like travel or work stress (NOT internal state, use mental); technique=form and coaching cues. Key distinctions: injury=localized, illness=systemic. mental=internal, lifestyle=external.",
+                        },
+                        author: {
+                            type: "string",
+                            enum: ["user", "ai"],
+                            description: "Who is writing this entry. Use 'ai' when logging an observation autonomously. Defaults to 'user'.",
+                        },
+                    },
+                    required: ["date", "text", "tags"],
+                    additionalProperties: true,
+                },
+            },
         ];
         return { jsonrpc: "2.0", id, result: { tools } };
     }
