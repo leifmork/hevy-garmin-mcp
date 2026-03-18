@@ -1,4 +1,4 @@
-import { put, get } from "@vercel/blob";
+import { put, get, BlobNotFoundError } from "@vercel/blob";
 
 // ─── Types ────────────────────────────────────────────────
 
@@ -39,7 +39,7 @@ const LOG_BLOB_NAME = "training-log.json";
 export async function readLog(): Promise<LogEntry[]> {
     try {
         const result = await get(LOG_BLOB_NAME, { access: "private" });
-        if (!result || result.statusCode !== 200 || !result.stream) return [];
+        if (!result || !result.stream) return [];
 
         const reader = result.stream.getReader();
         const chunks: Uint8Array[] = [];
@@ -50,8 +50,9 @@ export async function readLog(): Promise<LogEntry[]> {
         }
         const text = new TextDecoder().decode(Buffer.concat(chunks));
         return JSON.parse(text) as LogEntry[];
-    } catch {
-        return [];
+    } catch (err) {
+        if (err instanceof BlobNotFoundError) return [];
+        throw err;
     }
 }
 
@@ -63,6 +64,7 @@ export async function writeLog(entries: LogEntry[]): Promise<void> {
     await put(LOG_BLOB_NAME, JSON.stringify(entries, null, 2), {
         access: "private",
         addRandomSuffix: false,
+        allowOverwrite: true,
         contentType: "application/json",
     });
 }
